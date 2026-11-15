@@ -31,18 +31,29 @@ jobs:
       - name: Integration tests
         run: npm run test:integration
 
+      - name: Start test server
+        run: |
+          npm run start:test > server.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3000/api/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat server.log
+          exit 1
+
       - name: E2E tests
         uses: cypress-io/github-action@v6
         with:
           install: false
-          start: npm run start:test
-          wait-on: 'http://127.0.0.1:3000/api/health'
-          wait-on-timeout: 60
 
-      - name: Save failure screenshots
+      - name: Save failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: cypress-screenshots
-          path: cypress/screenshots
+          name: test-failure-diagnostics
+          path: |
+            cypress/screenshots/
+            server.log
           if-no-files-found: ignore
